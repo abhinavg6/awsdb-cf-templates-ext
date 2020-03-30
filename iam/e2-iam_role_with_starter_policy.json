@@ -1,0 +1,142 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "AWS CloudFormation Sample for a Databricks All-in-one NPIP Workspace Deployment.",
+	"Parameters": {
+		"DatabricksAccount": {
+			"Default": "414351767826",
+			"Description": "Databricks AWS account that should be trusted to invoke required actions in customer's VPC",
+			"Type": "String"
+		},
+		"IAMRoleName": {
+			"Default": "Databricks-E2-Cross-Account-Role",
+			"Description": "Name of the Databricks Cross-Account IAM role",
+			"Type": "String"
+		},
+		"InlinePolicyName": {
+			"Default": "Databricks-E2-Cross-Account-Policy",
+			"Description": "Name of the Databricks Cross-Account IAM policy",
+			"Type": "String"
+		},
+		"OwnerTagValue": {
+			"Default": "abhinav.garg@databricks.com",
+			"Description": "Value for the owner tag",
+			"Type": "String"
+		}
+	},
+	"Resources": {
+		"CrossAccIAMRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+						"Effect": "Allow",
+						"Principal": {
+							"AWS": {
+								"Ref": "DatabricksAccount"
+							}
+						},
+						"Action": "sts:AssumeRole"
+					}]
+				},
+				"Description": "",
+				"Policies": [{
+					"PolicyName": {
+						"Ref": "InlinePolicyName"
+					},
+					"PolicyDocument": {
+						"Version": "2012-10-17",
+						"Statement": [{
+								"Effect": "Allow",
+								"Action": [
+									"ec2:AssociateIamInstanceProfile",
+									"ec2:AttachVolume",
+									"ec2:AuthorizeSecurityGroupEgress",
+									"ec2:AuthorizeSecurityGroupIngress",
+									"ec2:CancelSpotInstanceRequests",
+									"ec2:CreateKeyPair",
+									"ec2:CreatePlacementGroup",
+									"ec2:CreateTags",
+									"ec2:CreateVolume",
+									"ec2:DeleteKeyPair",
+									"ec2:DeletePlacementGroup",
+									"ec2:DeleteTags",
+									"ec2:DeleteVolume",
+									"ec2:DescribeAvailabilityZones",
+									"ec2:DescribeInstanceStatus",
+									"ec2:DescribeInstances",
+									"ec2:DescribeInternetGateways",
+									"ec2:DescribeNetworkAcls",
+									"ec2:DescribePlacementGroups",
+									"ec2:DescribePrefixLists",
+									"ec2:DescribeReservedInstancesOfferings",
+									"ec2:DescribeRouteTables",
+									"ec2:DescribeSecurityGroups",
+									"ec2:DescribeSpotInstanceRequests",
+									"ec2:DescribeSpotPriceHistory",
+									"ec2:DescribeSubnets",
+									"ec2:DescribeVolumes",
+									"ec2:DescribeVpcAttribute",
+									"ec2:DescribeVpcs",
+									"ec2:DetachVolume",
+									"ec2:DisassociateIamInstanceProfile",
+									"ec2:ReplaceIamInstanceProfileAssociation",
+									"ec2:RequestSpotInstances",
+									"ec2:RevokeSecurityGroupEgress",
+									"ec2:RevokeSecurityGroupIngress",
+									"ec2:RunInstances",
+									"ec2:TerminateInstances"
+								],
+								"Resource": [
+									"*"
+								]
+							},
+							{
+								"Effect": "Allow",
+								"Action": [
+									"iam:CreateServiceLinkedRole",
+									"iam:PutRolePolicy"
+								],
+								"Resource": "arn:aws:iam::*:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot",
+								"Condition": {
+									"StringLike": {
+										"iam:AWSServiceName": "spot.amazonaws.com"
+									}
+								}
+							}
+						]
+					}
+				}],
+				"RoleName": {
+					"Ref": "IAMRoleName"
+				},
+				"Tags": [{
+						"Key": "owner",
+						"Value": {
+							"Ref": "OwnerTagValue"
+						}
+					},
+					{
+						"Key": "name",
+						"Value": {
+							"Ref": "IAMRoleName"
+						}
+					}
+				]
+			}
+		}
+	},
+	"Outputs": {
+		"IAMRoleOut": {
+			"Description": "IAM Role",
+			"Value": {
+				"Ref": "CrossAccIAMRole"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Sub": "${AWS::StackName}-IAMRole"
+				}
+			}
+		}
+	}
+}

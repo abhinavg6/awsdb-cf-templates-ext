@@ -1,0 +1,382 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "AWS CloudFormation Sample for a Databricks All-in-one NPIP Workspace Deployment.",
+	"Parameters": {
+		"DatabricksAccount": {
+			"Default": "414351767826",
+			"Description": "Databricks AWS account that should be trusted to invoke required actions in customer's VPC",
+			"Type": "String"
+		},
+		"WorkspaceRegion": {
+			"Default": "us-west-2",
+			"Description": "Region where customer's Databricks workspace in their own managed VPC is deployed",
+			"Type": "String"
+		},
+		"WorkspaceAccount": {
+			"Default": "111111111111",
+			"Description": "Customer's AWS account containing the Databricks workspace data plane",
+			"Type": "String"
+		},
+		"WorkspaceVPC": {
+			"AllowedPattern": "vpc-.*",
+			"ConstraintDescription": "VPC Id must be in the form of vpc-xxxxxxxxxxxxxxxxx",
+			"Description": "Customer's VPC containing the Databricks workspace data plane",
+			"Type": "AWS::EC2::VPC::Id"
+		},
+		"IAMRoleName": {
+			"Default": "Databricks-E2-Cross-Account-Role",
+			"Description": "Name of the Databricks Cross-Account IAM role",
+			"Type": "String"
+		},
+		"InlinePolicyName": {
+			"Default": "Databricks-E2-Cross-Account-Policy",
+			"Description": "Name of the Databricks Cross-Account IAM policy",
+			"Type": "String"
+		},
+		"OwnerTagValue": {
+			"Default": "abhinav.garg@databricks.com",
+			"Description": "Value for the owner tag",
+			"Type": "String"
+		}
+	},
+	"Resources": {
+		"CrossAccIAMRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+						"Effect": "Allow",
+						"Principal": {
+							"AWS": {
+								"Ref": "DatabricksAccount"
+							}
+						},
+						"Action": "sts:AssumeRole"
+					}]
+				},
+				"Description": "",
+				"Policies": [{
+					"PolicyName": {
+						"Ref": "InlinePolicyName"
+					},
+					"PolicyDocument": {
+						"Version": "2012-10-17",
+						"Statement": [{
+								"Sid": "NonResourceBasedPermissions",
+								"Effect": "Allow",
+								"Action": [
+									"ec2:DescribeAvailabilityZones",
+									"ec2:DescribeInstanceStatus",
+									"ec2:DescribeInstances",
+									"ec2:DescribeInternetGateways",
+									"ec2:DescribeNetworkAcls",
+									"ec2:DescribePlacementGroups",
+									"ec2:DescribePrefixLists",
+									"ec2:DescribeReservedInstancesOfferings",
+									"ec2:DescribeRouteTables",
+									"ec2:DescribeSecurityGroups",
+									"ec2:DescribeSpotInstanceRequests",
+									"ec2:DescribeSpotPriceHistory",
+									"ec2:DescribeSubnets",
+									"ec2:DescribeVolumes",
+									"ec2:DescribeVpcAttribute",
+									"ec2:DescribeVpcs",
+									"ec2:CreatePlacementGroup",
+									"ec2:DeletePlacementGroup",
+									"ec2:CreateKeyPair",
+									"ec2:DeleteKeyPair",
+									"ec2:CreateTags",
+									"ec2:DeleteTags",
+									"ec2:RequestSpotInstances",
+									"ec2:CancelSpotInstanceRequests"
+								],
+								"Resource": [
+									"*"
+								]
+							},
+							{
+								"Sid": "InstancePoolsSupport",
+								"Effect": "Allow",
+								"Action": [
+									"ec2:AssociateIamInstanceProfile",
+									"ec2:DisassociateIamInstanceProfile",
+									"ec2:ReplaceIamInstanceProfileAssociation"
+								],
+								"Resource": {
+									"Fn::Join": ["", ["arn:aws:ec2:", {
+										"Ref": "WorkspaceRegion"
+									}, ":", {
+										"Ref": "WorkspaceAccount"
+									}, ":instance/*"]]
+								},
+								"Condition": {
+									"StringEquals": {
+										"ec2:ResourceTag/Vendor": "Databricks"
+									}
+								}
+							},
+							{
+								"Sid": "AllowEc2RunInstancePerTag",
+								"Effect": "Allow",
+								"Action": "ec2:RunInstances",
+								"Resource": [{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":volume/*"]]
+									},
+									{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":instance/*"]]
+									}
+								],
+								"Condition": {
+									"StringEquals": {
+										"aws:RequestTag/Vendor": "Databricks"
+									}
+								}
+							},
+							{
+								"Sid": "AllowEc2RunInstanceImagePerTag",
+								"Effect": "Allow",
+								"Action": "ec2:RunInstances",
+								"Resource": {
+									"Fn::Join": ["", ["arn:aws:ec2:", {
+										"Ref": "WorkspaceRegion"
+									}, ":", {
+										"Ref": "WorkspaceAccount"
+									}, ":image/*"]]
+								},
+								"Condition": {
+									"StringEquals": {
+										"aws:ResourceTag/Vendor": "Databricks"
+									}
+								}
+							},
+							{
+								"Sid": "AllowEc2RunInstancePerVPCid",
+								"Effect": "Allow",
+								"Action": "ec2:RunInstances",
+								"Resource": [{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":network-interface/*"]]
+									},
+									{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":subnet/*"]]
+									},
+									{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":security-group/*"]]
+									}
+								],
+								"Condition": {
+									"StringEquals": {
+										"ec2:vpc": {
+											"Fn::Join": ["", ["arn:aws:ec2:", {
+												"Ref": "WorkspaceRegion"
+											}, ":", {
+												"Ref": "WorkspaceAccount"
+											}, ":vpc/", {
+												"Ref": "WorkspaceVPC"
+											}]]
+										}
+									}
+								}
+							},
+							{
+								"Sid": "AllowEc2RunInstanceOtherResources",
+								"Effect": "Allow",
+								"Action": "ec2:RunInstances",
+								"NotResource": [{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":image/*"]]
+									},
+									{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":network-interface/*"]]
+									},
+									{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":subnet/*"]]
+									},
+									{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":security-group/*"]]
+									},
+									{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":volume/*"]]
+									},
+									{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":instance/*"]]
+									}
+								]
+							},
+							{
+								"Sid": "EC2TerminateInstancesTag",
+								"Effect": "Allow",
+								"Action": [
+									"ec2:TerminateInstances"
+								],
+								"Resource": {
+									"Fn::Join": ["", ["arn:aws:ec2:", {
+										"Ref": "WorkspaceRegion"
+									}, ":", {
+										"Ref": "WorkspaceAccount"
+									}, ":instance/*"]]
+								},
+								"Condition": {
+									"StringEquals": {
+										"ec2:ResourceTag/Vendor": "Databricks"
+									}
+								}
+							},
+							{
+								"Sid": "EC2AttachDetachVolumeTag",
+								"Effect": "Allow",
+								"Action": [
+									"ec2:AttachVolume",
+									"ec2:DetachVolume"
+								],
+								"Resource": [{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":instance/*"]]
+									},
+									{
+										"Fn::Join": ["", ["arn:aws:ec2:", {
+											"Ref": "WorkspaceRegion"
+										}, ":", {
+											"Ref": "WorkspaceAccount"
+										}, ":volume/*"]]
+									}
+								],
+								"Condition": {
+									"StringEquals": {
+										"ec2:ResourceTag/Vendor": "Databricks"
+									}
+								}
+							},
+							{
+								"Sid": "EC2CreateVolumeByTag",
+								"Effect": "Allow",
+								"Action": [
+									"ec2:CreateVolume"
+								],
+								"Resource": {
+									"Fn::Join": ["", ["arn:aws:ec2:", {
+										"Ref": "WorkspaceRegion"
+									}, ":", {
+										"Ref": "WorkspaceAccount"
+									}, ":volume/*"]]
+								},
+								"Condition": {
+									"StringEquals": {
+										"aws:RequestTag/Vendor": "Databricks"
+									}
+								}
+							},
+							{
+								"Sid": "EC2DeleteVolumeByTag",
+								"Effect": "Allow",
+								"Action": [
+									"ec2:DeleteVolume"
+								],
+								"Resource": {
+									"Fn::Join": ["", ["arn:aws:ec2:", {
+										"Ref": "WorkspaceRegion"
+									}, ":", {
+										"Ref": "WorkspaceAccount"
+									}, ":volume/*"]]
+								},
+								"Condition": {
+									"StringEquals": {
+										"ec2:ResourceTag/Vendor": "Databricks"
+									}
+								}
+							},
+							{
+								"Effect": "Allow",
+								"Action": [
+									"iam:CreateServiceLinkedRole",
+									"iam:PutRolePolicy"
+								],
+								"Resource": "arn:aws:iam::*:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot",
+								"Condition": {
+									"StringLike": {
+										"iam:AWSServiceName": "spot.amazonaws.com"
+									}
+								}
+							}
+						]
+					}
+				}],
+				"RoleName": {
+					"Ref": "IAMRoleName"
+				},
+				"Tags": [{
+						"Key": "owner",
+						"Value": {
+							"Ref": "OwnerTagValue"
+						}
+					},
+					{
+						"Key": "name",
+						"Value": {
+							"Ref": "IAMRoleName"
+						}
+					}
+				]
+			}
+		}
+	},
+	"Outputs": {
+		"IAMRoleOut": {
+			"Description": "IAM Role",
+			"Value": {
+				"Ref": "CrossAccIAMRole"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Sub": "${AWS::StackName}-IAMRole"
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,482 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "AWS CloudFormation Sample for a Databricks All-in-one NPIP Workspace Deployment.",
+	"Parameters": {
+		"VpcId": {
+			"AllowedPattern": "vpc-.*",
+			"ConstraintDescription": "VPC Id must be in the form of vpc-xxxxxxxxxxxxxxxxx",
+			"Description": "VPC Id of the existing VPC for Databricks Workspace. It's required.",
+			"Type": "AWS::EC2::VPC::Id"
+		},
+		"Subnet1Cidr": {
+			"AllowedPattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}\\/(1[7-9]|2[0-5])$",
+			"ConstraintDescription": "CIDR block parameter must be in the form x.x.x.x/17-25",
+			"Description": "CIDR block for the Databricks Workspace Subnet 1. It's required.",
+			"Type": "String"
+		},
+		"Subnet2Cidr": {
+			"AllowedPattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}\\/(1[7-9]|2[0-5])$",
+			"ConstraintDescription": "CIDR block parameter must be in the form x.x.x.x/17-25",
+			"Description": "CIDR block for the Databricks Workspace Subnet 2. It's required.",
+			"Type": "String"
+		},
+		"ShouldCreateNATGateway": {
+			"AllowedPattern": "yes|no",
+			"ConstraintDescription": "The value must be exact yes or no",
+			"Description": "Decision parameter to indicate whether to create a new NAT Gateway or not - specify yes or no",
+			"Type": "String",
+			"Default": "no"
+		},
+		"ExistingNATGatewayId": {
+			"AllowedPattern": "nat-.*",
+			"ConstraintDescription": "NAT Gateway Id must be in the form of nat-xxxxxxxxxxxxxxxxx",
+			"Description": "NAT Gateway Id of the existing NAT Gateway. Required when reusing existing NAT Gateway, but keep the default when creating a new one.",
+			"Type": "String",
+			"Default": "nat-notrequired"
+		},
+		"NatSubnetCidr": {
+			"AllowedPattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}\\/(2[6-9])$",
+			"ConstraintDescription": "CIDR block parameter must be in the form x.x.x.x/26-29",
+			"Description": "CIDR block for the new NAT if creating one. Keep the default when reusing existing NAT Gateway, but change as needed when creating a new one.",
+			"Type": "String",
+			"Default": "10.173.16.0/28"
+		},
+		"ShouldCreatePrivateRouteTable": {
+			"AllowedPattern": "yes|no",
+			"ConstraintDescription": "The value must be exact yes or no",
+			"Description": "Decision parameter to indicate whether to create a new private route table or not - specify yes or no",
+			"Type": "String",
+			"Default": "no"
+		},
+		"ExistingPrivateRouteTableId": {
+			"AllowedPattern": "rtb-.*",
+			"ConstraintDescription": "Private Route Table Id must be in the form of rtb-xxxxxxxxxxxxxxxxx",
+			"Description": "Route Table Id of the existing Private Route Table. Required when reusing existing Private Route Table, but keep the default when creating a new one.",
+			"Type": "String",
+			"Default": "rtb-notrequired"
+		},
+		"ExistingPublicRouteTableId": {
+			"AllowedPattern": "rtb-.*",
+			"ConstraintDescription": "Public Route Table Id must be in the form of rtb-xxxxxxxxxxxxxxxxx",
+			"Description": "Route Table Id of the existing Public Route Table, with a hard assumption that one already exists in the existing VPC. Keep the default when reusing existing NAT Gateway, but change as needed when creating a new NAT.",
+			"Type": "String",
+			"Default": "rtb-notrequired"
+		},
+		"Subnet1Name": {
+			"Default": "Databricks-E2-Workspace-Subnet1-BYOVPC",
+			"Description": "Name of the Databricks Workspace Subnet 1",
+			"Type": "String"
+		},
+		"Subnet2Name": {
+			"Default": "Databricks-E2-Workspace-Subnet2-BYOVPC",
+			"Description": "Name of the Databricks Workspace Subnet 2",
+			"Type": "String"
+		},
+		"NatSubnetName": {
+			"Default": "Databricks-E2-Workspace-Nat-Subnet-BYOVPC",
+			"Description": "Name of the Databricks Workspace Nat Subnet. Not required when reusing existing NAT Gateway.",
+			"Type": "String"
+		},
+		"NATGWName": {
+			"Default": "Databricks-E2-Workspace-NATGW-BYOVPC",
+			"Description": "Name of the Databricks Workspace NAT Gateway. Not required when reusing existing NAT Gateway.",
+			"Type": "String"
+		},
+		"PrivateRTName": {
+			"Default": "Databricks-E2-Workspace-Private-RT-BYOVPC",
+			"Description": "Name of the Databricks Workspace Private Route Table. Not required when reusing existing Private Route Table.",
+			"Type": "String"
+		},
+		"SecurityGroupName": {
+			"Default": "Databricks-E2-Workspace-SG-BYOVPC",
+			"Description": "Name of the Databricks Workspace Security Group",
+			"Type": "String"
+		},
+		"OwnerTagValue": {
+			"Default": "abhinav.garg@databricks.com",
+			"Description": "Value for the owner tag",
+			"Type": "String"
+		}
+	},
+	"Conditions": {
+		"NATGatewayCondition": {
+			"Fn::Equals": [{
+					"Ref": "ShouldCreateNATGateway"
+				},
+				"yes"
+			]
+		},
+		"NATGatewayNotCondition": {
+			"Fn::Equals": [{
+					"Ref": "ShouldCreateNATGateway"
+				},
+				"no"
+			]
+		},
+		"PrivateRouteTableCondition": {
+			"Fn::Equals": [{
+					"Ref": "ShouldCreatePrivateRouteTable"
+				},
+				"yes"
+			]
+		},
+		"PrivateRouteTableNotCondition": {
+			"Fn::Equals": [{
+					"Ref": "ShouldCreatePrivateRouteTable"
+				},
+				"no"
+			]
+		},
+		"NATGWAndPrivateRTCondition": {
+			"Fn::And": [{
+					"Condition": "NATGatewayCondition"
+				},
+				{
+					"Condition": "PrivateRouteTableCondition"
+				}
+			]
+		},
+		"NATGWNotAndPrivateRTCondition": {
+			"Fn::And": [{
+					"Condition": "NATGatewayNotCondition"
+				},
+				{
+					"Condition": "PrivateRouteTableCondition"
+				}
+			]
+		}
+	},
+	"Resources": {
+		"Subnet1": {
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VpcId"
+				},
+				"AvailabilityZone": {
+					"Fn::Select": ["0", {
+						"Fn::GetAZs": ""
+					}]
+				},
+				"CidrBlock": {
+					"Ref": "Subnet1Cidr"
+				},
+				"Tags": [{
+						"Key": "owner",
+						"Value": {
+							"Ref": "OwnerTagValue"
+						}
+					},
+					{
+						"Key": "name",
+						"Value": {
+							"Ref": "Subnet1Name"
+						}
+					}
+				]
+			}
+		},
+		"Subnet2": {
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VpcId"
+				},
+				"AvailabilityZone": {
+					"Fn::Select": ["1", {
+						"Fn::GetAZs": ""
+					}]
+				},
+				"CidrBlock": {
+					"Ref": "Subnet2Cidr"
+				},
+				"Tags": [{
+						"Key": "owner",
+						"Value": {
+							"Ref": "OwnerTagValue"
+						}
+					},
+					{
+						"Key": "name",
+						"Value": {
+							"Ref": "Subnet2Name"
+						}
+					}
+				]
+			}
+		},
+		"NatSubnet": {
+			"Condition": "NATGatewayCondition",
+			"Type": "AWS::EC2::Subnet",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VpcId"
+				},
+				"MapPublicIpOnLaunch": true,
+				"AvailabilityZone": {
+					"Fn::Select": ["1", {
+						"Fn::GetAZs": ""
+					}]
+				},
+				"CidrBlock": {
+					"Ref": "NatSubnetCidr"
+				},
+				"Tags": [{
+						"Key": "owner",
+						"Value": {
+							"Ref": "OwnerTagValue"
+						}
+					},
+					{
+						"Key": "name",
+						"Value": {
+							"Ref": "NatSubnetName"
+						}
+					}
+				]
+			}
+		},
+		"NatSubnetRTAssociation": {
+			"Condition": "NATGatewayCondition",
+			"DependsOn": "NatSubnet",
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"SubnetId": {
+					"Ref": "NatSubnet"
+				},
+				"RouteTableId": {
+					"Ref": "ExistingPublicRouteTableId"
+				}
+			}
+		},
+		"NATElasticIP": {
+			"Condition": "NATGatewayCondition",
+			"DependsOn": "NatSubnetRTAssociation",
+			"Type": "AWS::EC2::EIP",
+			"Properties": {
+				"Domain": "vpc",
+				"Tags": [{
+					"Key": "owner",
+					"Value": {
+						"Ref": "OwnerTagValue"
+					}
+				}]
+			}
+		},
+		"NATGateway": {
+			"Condition": "NATGatewayCondition",
+			"DependsOn": "NATElasticIP",
+			"Type": "AWS::EC2::NatGateway",
+			"Properties": {
+				"AllocationId": {
+					"Fn::GetAtt": [
+						"NATElasticIP",
+						"AllocationId"
+					]
+				},
+				"SubnetId": {
+					"Ref": "NatSubnet"
+				},
+				"Tags": [{
+						"Key": "owner",
+						"Value": {
+							"Ref": "OwnerTagValue"
+						}
+					},
+					{
+						"Key": "name",
+						"Value": {
+							"Ref": "NATGWName"
+						}
+					}
+				]
+			}
+		},
+		"PrivateRouteTable": {
+			"Condition": "PrivateRouteTableCondition",
+			"Type": "AWS::EC2::RouteTable",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VpcId"
+				},
+				"Tags": [{
+						"Key": "owner",
+						"Value": {
+							"Ref": "OwnerTagValue"
+						}
+					},
+					{
+						"Key": "name",
+						"Value": {
+							"Ref": "PrivateRTName"
+						}
+					}
+				]
+			}
+		},
+		"RouteToNewNAT": {
+			"Condition": "NATGWAndPrivateRTCondition",
+			"DependsOn": ["NATGateway", "PrivateRouteTable"],
+			"Type": "AWS::EC2::Route",
+			"Properties": {
+				"RouteTableId": {
+					"Ref": "PrivateRouteTable"
+				},
+				"DestinationCidrBlock": "0.0.0.0/0",
+				"NatGatewayId": {
+					"Ref": "NATGateway"
+				}
+			}
+		},
+		"RouteToExistingNAT": {
+			"Condition": "NATGWNotAndPrivateRTCondition",
+			"DependsOn": "PrivateRouteTable",
+			"Type": "AWS::EC2::Route",
+			"Properties": {
+				"RouteTableId": {
+					"Ref": "PrivateRouteTable"
+				},
+				"DestinationCidrBlock": "0.0.0.0/0",
+				"NatGatewayId": {
+					"Ref": "ExistingNATGatewayId"
+				}
+			}
+		},
+		"Subnet1NewRTAssociation": {
+			"Condition": "PrivateRouteTableCondition",
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"SubnetId": {
+					"Ref": "Subnet1"
+				},
+				"RouteTableId": {
+					"Ref": "PrivateRouteTable"
+				}
+			}
+		},
+		"Subnet2NewRTAssociation": {
+			"Condition": "PrivateRouteTableCondition",
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"SubnetId": {
+					"Ref": "Subnet2"
+				},
+				"RouteTableId": {
+					"Ref": "PrivateRouteTable"
+				}
+			}
+		},
+		"Subnet1ExistingRTAssociation": {
+			"Condition": "PrivateRouteTableNotCondition",
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"SubnetId": {
+					"Ref": "Subnet1"
+				},
+				"RouteTableId": {
+					"Ref": "ExistingPrivateRouteTableId"
+				}
+			}
+		},
+		"Subnet2ExistingRTAssociation": {
+			"Condition": "PrivateRouteTableNotCondition",
+			"Type": "AWS::EC2::SubnetRouteTableAssociation",
+			"Properties": {
+				"SubnetId": {
+					"Ref": "Subnet2"
+				},
+				"RouteTableId": {
+					"Ref": "ExistingPrivateRouteTableId"
+				}
+			}
+		},
+		"WorkspaceSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+				"VpcId": {
+					"Ref": "VpcId"
+				},
+				"GroupDescription": "Allow access from within the same security group",
+				"GroupName": {
+					"Ref": "SecurityGroupName"
+				}
+			}
+		},
+		"WorkspaceSGTCPIngress": {
+			"DependsOn": "WorkspaceSecurityGroup",
+			"Type": "AWS::EC2::SecurityGroupIngress",
+			"Properties": {
+				"GroupId": {
+					"Ref": "WorkspaceSecurityGroup"
+				},
+				"IpProtocol": "tcp",
+				"FromPort": "0",
+				"ToPort": "65535",
+				"SourceSecurityGroupId": {
+					"Ref": "WorkspaceSecurityGroup"
+				}
+			}
+		},
+		"WorkspaceSGUDPIngress": {
+			"DependsOn": "WorkspaceSecurityGroup",
+			"Type": "AWS::EC2::SecurityGroupIngress",
+			"Properties": {
+				"GroupId": {
+					"Ref": "WorkspaceSecurityGroup"
+				},
+				"IpProtocol": "udp",
+				"FromPort": "0",
+				"ToPort": "65535",
+				"SourceSecurityGroupId": {
+					"Ref": "WorkspaceSecurityGroup"
+				}
+			}
+		},
+		"WorkspaceSGAllEgress": {
+			"DependsOn": "WorkspaceSecurityGroup",
+			"Type": "AWS::EC2::SecurityGroupEgress",
+			"Properties": {
+				"GroupId": {
+					"Ref": "WorkspaceSecurityGroup"
+				},
+				"IpProtocol": "-1",
+				"CidrIp": "0.0.0.0/0"
+			}
+		}
+	},
+	"Outputs": {
+		"Subnet1Out": {
+			"Description": "Subnet 1 Id",
+			"Value": {
+				"Ref": "Subnet1"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Sub": "${AWS::StackName}-Subnet1"
+				}
+			}
+		},
+		"Subnet2Out": {
+			"Description": "Subnet 2 Id",
+			"Value": {
+				"Ref": "Subnet2"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Sub": "${AWS::StackName}-Subnet2"
+				}
+			}
+		},
+		"WorkspaceSecurityGroupOut": {
+			"Description": "Workspace Security Group Id",
+			"Value": {
+				"Ref": "WorkspaceSecurityGroup"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Sub": "${AWS::StackName}-SecurityGroup"
+				}
+			}
+		}
+	}
+}
