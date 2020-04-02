@@ -408,7 +408,7 @@
 		"IAMRoleOut": {
 			"Description": "IAM Role",
 			"Value": {
-				"Ref": "CrossAccIAMRole"
+				"Fn::GetAtt" : ["CrossAccIAMRole", "Arn"]
 			},
 			"Export": {
 				"Name": {
