@@ -1,0 +1,116 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "AWS CloudFormation Sample for a Databricks Workspace BYOK KMS Key.",
+	"Parameters": {
+		"DatabricksAccount": {
+			"Default": "111111111111",
+			"Description": "Databricks AWS account that should be allowed to access the KMS key",
+			"Type": "String"
+		},
+		"KeyDescription": {
+			"Default": "KMS Key used by Databricks to encrypt/decrypt the notebooks for a workspace",
+			"Description": "Description for what this KMS key is to intended for",
+			"Type": "String"
+		},
+		"KeyAliasSuffix": {
+			"Default": "databricks-e2-byok-key",
+			"Description": "Suffix for the KMS Key Alias required as a reference by Databricks. A random sequence is added to this suffix later.",
+			"Type": "String"
+		},
+		"OwnerTagValue": {
+			"Default": "abhinav.garg@databricks.com",
+			"Description": "Value for the owner tag",
+			"Type": "String"
+		}
+	},
+	"Resources": {
+		"BYOKKMSKey": {
+			"Type": "AWS::KMS::Key",
+			"Properties": {
+				"Description": {
+					"Ref": "KeyDescription"
+				},
+				"Enabled": true,
+				"KeyPolicy": {
+					"Statement": [{
+						"Sid": "Enable Owner Account Permissions",
+						"Effect": "Allow",
+						"Principal": {
+							"AWS": {
+								"Fn::Sub": "arn:aws:iam::${AWS::AccountId}:root"
+							}
+						},
+						"Action": "kms:*",
+						"Resource": "*"
+					}, {
+						"Sid": "Allow Databricks to use KMS key for BYOK",
+						"Effect": "Allow",
+						"Principal": {
+							"AWS": {
+								"Ref": "DatabricksAccount"
+							}
+						},
+						"Action": [
+							"kms:Encrypt",
+							"kms:Decrypt"
+						],
+						"Resource": "*"
+					}]
+				},
+				"Tags": [{
+					"Key": "owner",
+					"Value": {
+						"Ref": "OwnerTagValue"
+					}
+				}]
+			}
+		},
+		"BYOKKMSKeyAlias": {
+			"Type": "AWS::KMS::Alias",
+			"Properties": {
+				"AliasName": {
+					"Fn::Join": ["", ["alias/", {
+						"Ref": "KeyAliasSuffix"
+					}, "-", {
+						"Fn::Select": [0, {
+							"Fn::Split": ["-", {
+								"Fn::Select": [2, {
+									"Fn::Split": ["/", {
+										"Ref": "AWS::StackId"
+									}]
+								}]
+							}]
+						}]
+					}]]
+				},
+				"TargetKeyId": {
+					"Ref": "BYOKKMSKey"
+				}
+			}
+		}
+	},
+	"Outputs": {
+		"BYOKKMSKeyOut": {
+			"Description": "BYOK KMS Key",
+			"Value": {
+				"Fn::GetAtt" : ["BYOKKMSKey", "Arn"]
+			},
+			"Export": {
+				"Name": {
+					"Fn::Sub": "${AWS::StackName}-BYOKKMSKey"
+				}
+			}
+		},
+		"BYOKKMSKeyAliasOut": {
+			"Description": "BYOK KMS Key Alias",
+			"Value": {
+				"Ref": "BYOKKMSKeyAlias"
+			},
+			"Export": {
+				"Name": {
+					"Fn::Sub": "${AWS::StackName}-BYOKKMSKeyAlias"
+				}
+			}
+		}
+	}
+}
