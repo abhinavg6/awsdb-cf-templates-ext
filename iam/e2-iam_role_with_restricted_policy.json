@@ -12,11 +12,6 @@
 			"Description": "Region where customer's Databricks workspace in their own managed VPC is deployed",
 			"Type": "String"
 		},
-		"WorkspaceAccount": {
-			"Default": "111111111111",
-			"Description": "Customer's AWS account containing the Databricks workspace data plane",
-			"Type": "String"
-		},
 		"WorkspaceVPC": {
 			"AllowedPattern": "vpc-.*",
 			"ConstraintDescription": "VPC Id must be in the form of vpc-xxxxxxxxxxxxxxxxx",
@@ -107,7 +102,7 @@
 									"Fn::Join": ["", ["arn:aws:ec2:", {
 										"Ref": "WorkspaceRegion"
 									}, ":", {
-										"Ref": "WorkspaceAccount"
+										"Ref": "AWS::AccountId"
 									}, ":instance/*"]]
 								},
 								"Condition": {
@@ -124,14 +119,14 @@
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":volume/*"]]
 									},
 									{
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":instance/*"]]
 									}
 								],
@@ -149,7 +144,7 @@
 									"Fn::Join": ["", ["arn:aws:ec2:", {
 										"Ref": "WorkspaceRegion"
 									}, ":", {
-										"Ref": "WorkspaceAccount"
+										"Ref": "AWS::AccountId"
 									}, ":image/*"]]
 								},
 								"Condition": {
@@ -166,21 +161,21 @@
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":network-interface/*"]]
 									},
 									{
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":subnet/*"]]
 									},
 									{
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":security-group/*"]]
 									}
 								],
@@ -190,7 +185,7 @@
 											"Fn::Join": ["", ["arn:aws:ec2:", {
 												"Ref": "WorkspaceRegion"
 											}, ":", {
-												"Ref": "WorkspaceAccount"
+												"Ref": "AWS::AccountId"
 											}, ":vpc/", {
 												"Ref": "WorkspaceVPC"
 											}]]
@@ -206,42 +201,42 @@
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":image/*"]]
 									},
 									{
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":network-interface/*"]]
 									},
 									{
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":subnet/*"]]
 									},
 									{
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":security-group/*"]]
 									},
 									{
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":volume/*"]]
 									},
 									{
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":instance/*"]]
 									}
 								]
@@ -256,7 +251,7 @@
 									"Fn::Join": ["", ["arn:aws:ec2:", {
 										"Ref": "WorkspaceRegion"
 									}, ":", {
-										"Ref": "WorkspaceAccount"
+										"Ref": "AWS::AccountId"
 									}, ":instance/*"]]
 								},
 								"Condition": {
@@ -276,14 +271,14 @@
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":instance/*"]]
 									},
 									{
 										"Fn::Join": ["", ["arn:aws:ec2:", {
 											"Ref": "WorkspaceRegion"
 										}, ":", {
-											"Ref": "WorkspaceAccount"
+											"Ref": "AWS::AccountId"
 										}, ":volume/*"]]
 									}
 								],
@@ -303,7 +298,7 @@
 									"Fn::Join": ["", ["arn:aws:ec2:", {
 										"Ref": "WorkspaceRegion"
 									}, ":", {
-										"Ref": "WorkspaceAccount"
+										"Ref": "AWS::AccountId"
 									}, ":volume/*"]]
 								},
 								"Condition": {
@@ -322,7 +317,7 @@
 									"Fn::Join": ["", ["arn:aws:ec2:", {
 										"Ref": "WorkspaceRegion"
 									}, ":", {
-										"Ref": "WorkspaceAccount"
+										"Ref": "AWS::AccountId"
 									}, ":volume/*"]]
 								},
 								"Condition": {
