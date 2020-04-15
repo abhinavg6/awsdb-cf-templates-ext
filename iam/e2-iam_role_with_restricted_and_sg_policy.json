@@ -1,6 +1,6 @@
 {
 	"AWSTemplateFormatVersion": "2010-09-09",
-	"Description": "AWS CloudFormation Sample for a Databricks All-in-one NPIP Workspace Deployment.",
+	"Description": "AWS CloudFormation Sample for a Databricks Cross-Account IAM Role with Restricted Policy Deployment.",
 	"Parameters": {
 		"DatabricksAccount": {
 			"Default": "111111111111",

@@ -1,6 +1,6 @@
 {
 	"AWSTemplateFormatVersion": "2010-09-09",
-	"Description": "AWS CloudFormation Sample for a Databricks All-in-one NPIP Workspace Deployment.",
+	"Description": "AWS CloudFormation Sample for a Databricks All-in-one NPIP Workspace Deployment in New BYO VPC.",
 	"Parameters": {
 		"VPCCidr": {
 			"AllowedPattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}\\/(1[6-9]|2[0-4])$",
