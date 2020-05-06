@@ -2,9 +2,14 @@
 	"AWSTemplateFormatVersion": "2010-09-09",
 	"Description": "AWS CloudFormation Sample for a Databricks Cross-Account IAM Role with Starter Policy Deployment.",
 	"Parameters": {
-		"DatabricksAccount": {
+		"DatabricksAWSAccount": {
 			"Default": "111111111111",
 			"Description": "Databricks AWS account that should be trusted to invoke required actions in customer's VPC",
+			"Type": "String"
+		},
+		"DatabricksE2WorkspaceAccount": {
+			"Default": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+			"Description": "Databricks E2 Workspace account that should be used as the external id for cross-account trust relationship",
 			"Type": "String"
 		},
 		"IAMRoleName": {
@@ -33,10 +38,17 @@
 						"Effect": "Allow",
 						"Principal": {
 							"AWS": {
-								"Ref": "DatabricksAccount"
+								"Ref": "DatabricksAWSAccount"
 							}
 						},
-						"Action": "sts:AssumeRole"
+						"Action": "sts:AssumeRole",
+						"Condition": {
+							"StringEquals": {
+							  	"sts:ExternalId": {
+								  	"Ref": "DatabricksE2WorkspaceAccount"
+							  	}
+							}
+						}
 					}]
 				},
 				"Description": "",
