@@ -80,6 +80,7 @@
 								"Effect": "Allow",
 								"Action": [
 									"ec2:DescribeAvailabilityZones",
+									"ec2:DescribeIamInstanceProfileAssociations",
 									"ec2:DescribeInstanceStatus",
 									"ec2:DescribeInstances",
 									"ec2:DescribeInternetGateways",
